@@ -1,0 +1,181 @@
+import { useState, useEffect } from 'react';
+import { useChat } from '../hooks/useChat';
+import { useSession } from '../hooks/useSession';
+import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
+import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { createSession, setActiveSession, addMessageToSession } from '../store/chatHistorySlice';
+import { setMessages } from '../store/chatSlice';
+import Sidebar from '../components/Sidebar';
+import ChatHeader from '../components/ChatHeader';
+import MessageList from '../components/MessageList';
+import ChatInput from '../components/ChatInput';
+import ErrorAlert from '../components/ErrorAlert';
+import VerificationModal from '../components/VerificationModal';
+import VoiceInputButton from '../components/VoiceInputButton';
+import VoiceControls from '../components/VoiceControls';
+
+const ChatPage = () => {
+  useSession();
+  const dispatch = useAppDispatch();
+  const { messages, loading, error, sendMessage } = useChat();
+  const { sessions, activeSessionId } = useAppSelector((state) => state.chatHistory);
+  const { verified } = useAppSelector((state) => state.session);
+  
+  // Voice features
+  const { transcript, isListening, isSupported: sttSupported, startListening, stopListening, resetTranscript } = useSpeechRecognition();
+  const { speak, stop, isSpeaking, isSupported: ttsSupported, rate, setRate, enabled: ttsEnabled, setEnabled: setTtsEnabled } = useSpeechSynthesis();
+  
+  const [inputValue, setInputValue] = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+
+  // Load messages when active session changes
+  useEffect(() => {
+    const activeSession = sessions.find(s => s.id === activeSessionId);
+    if (activeSession) {
+      dispatch(setMessages(activeSession.messages));
+    }
+  }, [activeSessionId, sessions, dispatch]);
+
+  useEffect(() => {
+    if (sessions.length === 0) {
+      dispatch(createSession('New Conversation'));
+    }
+  }, [dispatch, sessions.length]);
+
+  // Update input with voice transcript
+  useEffect(() => {
+    if (transcript) {
+      setInputValue(transcript);
+    }
+  }, [transcript]);
+
+  // Auto-submit after voice input stops
+  useEffect(() => {
+    if (!isListening && transcript && inputValue) {
+      const timer = setTimeout(() => {
+        handleSendMessage();
+      }, 1500); // 1.5 second delay after voice stops
+
+      return () => clearTimeout(timer);
+    }
+  }, [isListening, transcript, inputValue]);
+
+  // Auto-read agent responses
+  useEffect(() => {
+    if (messages.length > 0 && ttsEnabled) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.role === 'agent') {
+        speak(lastMessage.content);
+      }
+    }
+  }, [messages, ttsEnabled, speak]);
+
+  const handleSendMessage = async () => {
+    if (!inputValue.trim() || loading || !activeSessionId) return;
+
+    if (isListening) {
+      stopListening();
+    }
+
+    if (!verified) {
+      setPendingMessage(inputValue);
+      setShowVerificationModal(true);
+      return;
+    }
+
+    const messageText = inputValue;
+    setInputValue('');
+    resetTranscript();
+
+    try {
+      await sendMessage(messageText, activeSessionId);
+    } catch (err) {
+      console.error('Failed to send message:', err);
+    }
+  };
+
+  const handleVerificationClose = () => {
+    setShowVerificationModal(false);
+  };
+
+  const handleVerificationSuccess = async () => {
+    setShowVerificationModal(false);
+    
+    if (pendingMessage && activeSessionId) {
+      const messageText = pendingMessage;
+      setPendingMessage(null);
+      setInputValue('');
+      
+      try {
+        await sendMessage(messageText, activeSessionId);
+      } catch (err) {
+        console.error('Failed to send message:', err);
+      }
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  return (
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-950">
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <ChatHeader onMenuClick={() => setSidebarOpen(true)} />
+        
+        <div className="flex-1 overflow-hidden flex flex-col px-4 sm:px-6 lg:px-8">
+          <MessageList messages={messages} loading={loading} />
+          
+          {error && <ErrorAlert message={error} />}
+          
+          {ttsSupported && (
+            <div className="mb-3">
+              <VoiceControls
+                enabled={ttsEnabled}
+                onToggle={() => setTtsEnabled(!ttsEnabled)}
+                isSpeaking={isSpeaking}
+                onStop={stop}
+                rate={rate}
+                onRateChange={setRate}
+              />
+            </div>
+          )}
+          
+          <ChatInput
+            value={inputValue}
+            onChange={setInputValue}
+            onSend={handleSendMessage}
+            onKeyPress={handleKeyPress}
+            disabled={loading}
+            loading={loading}
+            voiceButton={
+              <VoiceInputButton
+                isListening={isListening}
+                isSupported={sttSupported}
+                onStart={startListening}
+                onStop={stopListening}
+                disabled={loading}
+              />
+            }
+          />
+        </div>
+      </div>
+
+      <VerificationModal
+        isOpen={showVerificationModal}
+        onClose={handleVerificationClose}
+        onSuccess={handleVerificationSuccess}
+      />
+    </div>
+  );
+};
+
+export default ChatPage;

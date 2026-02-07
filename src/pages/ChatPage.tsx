@@ -4,7 +4,7 @@ import { useSession } from '../hooks/useSession';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { createSession, setActiveSession, addMessageToSession } from '../store/chatHistorySlice';
+import { createSession } from '../store/chatHistorySlice';
 import { setMessages } from '../store/chatSlice';
 import Sidebar from '../components/Sidebar';
 import ChatHeader from '../components/ChatHeader';

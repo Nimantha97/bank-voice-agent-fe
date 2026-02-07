@@ -1,5 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 
+// Extend Window interface for Speech Recognition
+declare global {
+  interface Window {
+    SpeechRecognition: typeof SpeechRecognition;
+    webkitSpeechRecognition: typeof SpeechRecognition;
+  }
+}
+
 interface UseSpeechRecognitionReturn {
   transcript: string;
   isListening: boolean;
@@ -27,7 +35,7 @@ export const useSpeechRecognition = (): UseSpeechRecognitionReturn => {
     recognitionInstance.interimResults = true;
     recognitionInstance.lang = 'en-US';
 
-    recognitionInstance.onresult = (event) => {
+    recognitionInstance.onresult = (event: SpeechRecognitionEvent) => {
       const current = event.resultIndex;
       const transcriptText = event.results[current][0].transcript;
       setTranscript(transcriptText);
@@ -37,7 +45,7 @@ export const useSpeechRecognition = (): UseSpeechRecognitionReturn => {
       setIsListening(false);
     };
 
-    recognitionInstance.onerror = (event) => {
+    recognitionInstance.onerror = (event: SpeechRecognitionErrorEvent) => {
       console.error('Speech recognition error:', event.error);
       setIsListening(false);
     };

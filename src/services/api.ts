@@ -31,8 +31,9 @@ apiClient.interceptors.response.use(
   (error: AxiosError) => {
     if (error.response) {
       // Server responded with error
+      const errorData = error.response.data as { message?: string };
       throw new NetworkError(
-        error.response.data?.message || 'Server error occurred',
+        errorData?.message || 'Server error occurred',
         error.response.status
       );
     } else if (error.request) {

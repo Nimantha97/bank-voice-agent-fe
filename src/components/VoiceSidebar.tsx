@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Plus, Trash2, X, Mic } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { createVoiceSession, setActiveVoiceSession, deleteVoiceSession } from '../store/voiceHistorySlice';
+import DeleteConfirmModal from './DeleteConfirmModal';
 
 interface VoiceSidebarProps {
   isOpen: boolean;
@@ -10,6 +12,8 @@ interface VoiceSidebarProps {
 const VoiceSidebar = ({ isOpen, onClose }: VoiceSidebarProps) => {
   const dispatch = useAppDispatch();
   const { sessions, activeSessionId } = useAppSelector((state) => state.voiceHistory);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
 
   const handleNewChat = () => {
     dispatch(createVoiceSession('New Voice Chat'));
@@ -22,13 +26,27 @@ const VoiceSidebar = ({ isOpen, onClose }: VoiceSidebarProps) => {
 
   const handleDeleteSession = (sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (window.confirm('Delete this voice conversation?')) {
-      dispatch(deleteVoiceSession(sessionId));
+    setSessionToDelete(sessionId);
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (sessionToDelete) {
+      dispatch(deleteVoiceSession(sessionToDelete));
+      setSessionToDelete(null);
     }
   };
 
   return (
     <>
+      <DeleteConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={confirmDelete}
+        title="Delete Voice Conversation"
+        message="Are you sure you want to delete this voice conversation? This action cannot be undone."
+      />
+
       {/* Overlay */}
       {isOpen && (
         <div
@@ -45,7 +63,7 @@ const VoiceSidebar = ({ isOpen, onClose }: VoiceSidebarProps) => {
       >
         {/* Header */}
         <div className="p-4 border-b border-gray-200 dark:border-gray-800">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
               <Mic className="w-5 h-5" />
               Voice Chats
@@ -57,6 +75,9 @@ const VoiceSidebar = ({ isOpen, onClose }: VoiceSidebarProps) => {
               <X className="w-5 h-5" />
             </button>
           </div>
+        </div>
+
+        <div className="p-5 border-b border-gray-200 dark:border-gray-800">
           <button
             onClick={handleNewChat}
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white rounded-lg transition-colors font-medium"
@@ -95,7 +116,8 @@ const VoiceSidebar = ({ isOpen, onClose }: VoiceSidebarProps) => {
                   </div>
                   <button
                     onClick={(e) => handleDeleteSession(session.id, e)}
-                    className="opacity-0 group-hover:opacity-100 text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-opacity"
+                    className="p-1 text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-all opacity-0 group-hover:opacity-100"
+                    aria-label="Delete conversation"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>

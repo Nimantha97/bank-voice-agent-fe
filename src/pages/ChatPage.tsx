@@ -11,7 +11,6 @@ import UnifiedHeader from '../components/UnifiedHeader';
 import MessageList from '../components/MessageList';
 import ChatInput from '../components/ChatInput';
 import ErrorAlert from '../components/ErrorAlert';
-import VerificationModal from '../components/VerificationModal';
 import VoiceInputButton from '../components/VoiceInputButton';
 import VoiceControls from '../components/VoiceControls';
 
@@ -28,8 +27,6 @@ const ChatPage = () => {
   
   const [inputValue, setInputValue] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [showVerificationModal, setShowVerificationModal] = useState(false);
-  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const isSendingMessageRef = useRef(false);
 
   // Load messages when active session changes
@@ -82,46 +79,17 @@ const ChatPage = () => {
       stopListening();
     }
 
-    if (!verified) {
-      setPendingMessage(inputValue);
-      setShowVerificationModal(true);
-      return;
-    }
-
     const messageText = inputValue;
     setInputValue('');
     resetTranscript();
 
-    isSendingMessageRef.current = true; // Mark that we're sending a message
+    isSendingMessageRef.current = true;
 
     try {
       await sendMessage(messageText, activeSessionId);
     } catch (err) {
       console.error('Failed to send message:', err);
-      isSendingMessageRef.current = false; // Reset on error
-    }
-  };
-
-  const handleVerificationClose = () => {
-    setShowVerificationModal(false);
-  };
-
-  const handleVerificationSuccess = async () => {
-    setShowVerificationModal(false);
-    
-    if (pendingMessage && activeSessionId) {
-      const messageText = pendingMessage;
-      setPendingMessage(null);
-      setInputValue('');
-      
-      isSendingMessageRef.current = true; // Mark that we're sending a message
-      
-      try {
-        await sendMessage(messageText, activeSessionId);
-      } catch (err) {
-        console.error('Failed to send message:', err);
-        isSendingMessageRef.current = false; // Reset on error
-      }
+      isSendingMessageRef.current = false;
     }
   };
 
@@ -176,12 +144,6 @@ const ChatPage = () => {
           />
         </div>
       </div>
-
-      <VerificationModal
-        isOpen={showVerificationModal}
-        onClose={handleVerificationClose}
-        onSuccess={handleVerificationSuccess}
-      />
     </div>
   );
 };

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Trash2, Send } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Send } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
   transcribeAudio,
@@ -8,8 +8,8 @@ import {
   setRecording,
   setPlaying,
   addMessage,
-  clearMessages,
-  setVerification,
+  clearMessages
+  ,
   clearError,
 } from '../store/voiceSlice';
 import {
@@ -18,10 +18,10 @@ import {
 } from '../store/voiceHistorySlice';
 import VoiceStatusIndicator from '../components/VoiceStatusIndicator';
 import VoiceConversationView from '../components/VoiceConversationView';
-import VoiceVerificationModal from '../components/VoiceVerificationModal';
 import UnifiedHeader from '../components/UnifiedHeader';
 import VoiceSidebar from '../components/VoiceSidebar';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
+import { audioManager } from '../utils/audioManager';
 
 const VoiceDashboard = () => {
   const dispatch = useAppDispatch();
@@ -30,17 +30,15 @@ const VoiceDashboard = () => {
     isProcessing,
     processingStatus,
     error,
-    verified,
-    customerId,
   } = useAppSelector((state) => state.voice);
   
+  const { customerId, } = useAppSelector((state) => state.session);
   const { sessions, activeSessionId } = useAppSelector((state) => state.voiceHistory);
 
   const [textInput, setTextInput] = useState('');
-  const [showVerificationModal, setShowVerificationModal] = useState(false);
-  const [verificationError, setVerificationError] = useState('');
-  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const isProcessingRef = useRef(false);
+  const speakingTimeoutRef = useRef<number | null>(null);
 
   const {
     isRecording,
@@ -80,17 +78,19 @@ const VoiceDashboard = () => {
     if (audioBlob && !isRecording) {
       const timer = setTimeout(() => {
         handleTranscription(audioBlob);
-      }, 2000); // 2-second delay after recording stops
+      }, 2000);
       
       return () => clearTimeout(timer);
     }
   }, [audioBlob, isRecording]);
 
   const handleTranscription = async (blob: Blob) => {
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+    
     try {
       const result = await dispatch(transcribeAudio(blob)).unwrap();
       
-      // Add user message
       const userMessage = {
         role: 'user' as const,
         content: result,
@@ -98,7 +98,6 @@ const VoiceDashboard = () => {
       };
       dispatch(addMessage(userMessage));
       
-      // Save to session
       if (activeSessionId) {
         dispatch(addMessageToVoiceSession({
           sessionId: activeSessionId,
@@ -110,22 +109,16 @@ const VoiceDashboard = () => {
         }));
       }
 
-      // Send to voice chat
       await handleSendMessage(result);
-      
       clearRecording();
     } catch (err: any) {
       console.error('Transcription error:', err);
+    } finally {
+      isProcessingRef.current = false;
     }
   };
 
   const handleSendMessage = async (message: string) => {
-    if (!verified) {
-      setPendingMessage(message);
-      setShowVerificationModal(true);
-      return;
-    }
-
     try {
       const response = await dispatch(
         sendVoiceMessage({
@@ -135,23 +128,17 @@ const VoiceDashboard = () => {
         })
       ).unwrap();
 
-      // Check if verification is required
-      if (response.requires_verification) {
-        setPendingMessage(message);
-        setShowVerificationModal(true);
-        return;
-      }
-
-      // Add agent message
+      const audioUrl = await dispatch(synthesizeSpeech(response.text_response)).unwrap();
+      
       const agentMessage = {
         role: 'agent' as const,
         content: response.text_response,
         isVoice: false,
+        audioUrl,
         flow: response.flow,
       };
       dispatch(addMessage(agentMessage));
       
-      // Save to session
       if (activeSessionId) {
         dispatch(addMessageToVoiceSession({
           sessionId: activeSessionId,
@@ -163,20 +150,6 @@ const VoiceDashboard = () => {
         }));
       }
 
-      // Synthesize speech
-      const audioUrl = await dispatch(synthesizeSpeech(response.text_response)).unwrap();
-      
-      // Update last message with audio URL
-      const agentMessageWithAudio = {
-        role: 'agent' as const,
-        content: response.text_response,
-        isVoice: false,
-        audioUrl,
-        flow: response.flow,
-      };
-      dispatch(addMessage(agentMessageWithAudio));
-
-      // Auto-play audio
       playAudio(audioUrl);
       
     } catch (err: any) {
@@ -185,35 +158,32 @@ const VoiceDashboard = () => {
   };
 
   const playAudio = (audioUrl: string) => {
-    const audio = new Audio(audioUrl);
-    dispatch(setPlaying(true));
-    
-    audio.onended = () => {
-      dispatch(setPlaying(false));
-    };
-    
-    audio.onerror = () => {
-      dispatch(setPlaying(false));
-    };
-    
-    audio.play();
-  };
-
-  const handleVerification = async (custId: string, pin: string) => {
-    // Mock verification - replace with actual API call
-    if (custId === 'CUST001' && pin === '1234') {
-      dispatch(setVerification({ verified: true, customerId: custId }));
-      setShowVerificationModal(false);
-      setVerificationError('');
-      
-      // Send pending message if exists
-      if (pendingMessage) {
-        await handleSendMessage(pendingMessage);
-        setPendingMessage(null);
-      }
-    } else {
-      setVerificationError('Invalid Customer ID or PIN');
+    // Clear any existing timeout
+    if (speakingTimeoutRef.current) {
+      clearTimeout(speakingTimeoutRef.current);
     }
+
+    dispatch(setPlaying(true));
+    audioManager.play(
+      audioUrl,
+      () => {
+        dispatch(setPlaying(false));
+        if (speakingTimeoutRef.current) {
+          clearTimeout(speakingTimeoutRef.current);
+        }
+      },
+      () => {
+        dispatch(setPlaying(false));
+        if (speakingTimeoutRef.current) {
+          clearTimeout(speakingTimeoutRef.current);
+        }
+      }
+    );
+
+    // Fallback: Stop speaking status after 30 seconds
+    speakingTimeoutRef.current = window.setTimeout(() => {
+      dispatch(setPlaying(false));
+    }, 2000);
   };
 
   const handleTextSubmit = (e: React.FormEvent) => {
@@ -242,12 +212,6 @@ const VoiceDashboard = () => {
 
     handleSendMessage(textInput);
     setTextInput('');
-  };
-
-  const handleClearConversation = () => {
-    if (window.confirm('Are you sure you want to clear the conversation?')) {
-      dispatch(clearMessages());
-    }
   };
 
   return (
@@ -345,17 +309,6 @@ const VoiceDashboard = () => {
               >
                 <Send className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
-
-              {/* Clear Button */}
-              <button
-                type="button"
-                onClick={handleClearConversation}
-                disabled={messages.length === 0}
-                className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                aria-label="Clear conversation"
-              >
-                <Trash2 className="w-5 h-5 sm:w-6 sm:h-6" />
-              </button>
             </form>
 
             {/* Helper Text */}
@@ -368,17 +321,6 @@ const VoiceDashboard = () => {
         </div>
       </div>
 
-      {/* Verification Modal */}
-      <VoiceVerificationModal
-        isOpen={showVerificationModal}
-        onClose={() => {
-          setShowVerificationModal(false);
-          setVerificationError('');
-          setPendingMessage(null);
-        }}
-        onVerify={handleVerification}
-        error={verificationError}
-      />
       </div>
     </div>
   );

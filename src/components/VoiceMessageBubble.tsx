@@ -1,6 +1,7 @@
-import { memo, useState, useRef } from 'react';
+import { memo, useState, useEffect, useRef } from 'react';
 import { Volume2, Mic, Pause } from 'lucide-react';
 import type { VoiceMessage } from '../types/voice';
+import { audioManager } from '../utils/audioManager';
 
 interface VoiceMessageBubbleProps {
   message: VoiceMessage;
@@ -9,38 +10,46 @@ interface VoiceMessageBubbleProps {
 const VoiceMessageBubble = memo(({ message }: VoiceMessageBubbleProps) => {
   const isUser = message.role === 'user';
   const [isPlaying, setIsPlaying] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleStop = () => setIsPlaying(false);
+    const element = containerRef.current;
+    if (element) {
+      element.addEventListener('stopAudio', handleStop);
+      return () => element.removeEventListener('stopAudio', handleStop);
+    }
+  }, []);
 
   const handlePlayAudio = () => {
     if (!message.audioUrl) return;
 
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-        setIsPlaying(false);
-      } else {
-        audioRef.current.play();
-        setIsPlaying(true);
-      }
+    if (isPlaying) {
+      audioManager.stop();
+      setIsPlaying(false);
     } else {
-      const audio = new Audio(message.audioUrl);
-      audioRef.current = audio;
-      
-      audio.onended = () => {
-        setIsPlaying(false);
-      };
-      
-      audio.onerror = () => {
-        setIsPlaying(false);
-      };
-      
-      audio.play();
+      // Stop any other playing message
+      const allMessages = document.querySelectorAll('[data-audio-playing="true"]');
+      allMessages.forEach(msg => {
+        const event = new CustomEvent('stopAudio');
+        msg.dispatchEvent(event);
+      });
+
+      audioManager.play(
+        message.audioUrl,
+        () => setIsPlaying(false),
+        () => setIsPlaying(false)
+      );
       setIsPlaying(true);
     }
   };
 
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
+    <div 
+      ref={containerRef}
+      data-audio-playing={isPlaying}
+      className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}
+    >
       <div className={`max-w-xs sm:max-w-md lg:max-w-lg ${isUser ? 'order-1' : 'order-2'}`}>
         <div
           className={`rounded-2xl px-4 py-3 shadow-md ${

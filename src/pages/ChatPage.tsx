@@ -19,7 +19,6 @@ const ChatPage = () => {
   const dispatch = useAppDispatch();
   const { messages, loading, error, sendMessage } = useChat();
   const { sessions, activeSessionId } = useAppSelector((state) => state.chatHistory);
-  const { verified } = useAppSelector((state) => state.session);
   
   // Voice features
   const { transcript, isListening, isSupported: sttSupported, startListening, stopListening, resetTranscript } = useSpeechRecognition();

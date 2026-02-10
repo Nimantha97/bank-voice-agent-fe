@@ -90,7 +90,7 @@ const voiceHistorySlice = createSlice({
         saveToStorage(state);
       }
     },
-    loadVoiceSessionMessages: (state, action: PayloadAction<string>) => {
+    loadVoiceSessionMessages: () => {
       // This is handled by the component
     },
   },

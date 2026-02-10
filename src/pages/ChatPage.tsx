@@ -30,17 +30,13 @@ const ChatPage = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const isSendingMessageRef = useRef(false);
 
   // Load messages when active session changes
   useEffect(() => {
     const activeSession = sessions.find(s => s.id === activeSessionId);
     if (activeSession) {
-      setIsInitialLoad(true); // Mark as initial load
       dispatch(setMessages(activeSession.messages));
-      // Reset after a short delay
-      setTimeout(() => setIsInitialLoad(false), 100);
     }
   }, [activeSessionId, sessions, dispatch]);
 

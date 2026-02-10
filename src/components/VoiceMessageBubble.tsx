@@ -1,5 +1,5 @@
 import { memo, useState, useRef } from 'react';
-import { Volume2, Mic, Pause, Play } from 'lucide-react';
+import { Volume2, Mic, Pause } from 'lucide-react';
 import type { VoiceMessage } from '../types/voice';
 
 interface VoiceMessageBubbleProps {

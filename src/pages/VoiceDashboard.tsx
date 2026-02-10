@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Trash2, Send } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
@@ -15,24 +15,20 @@ import {
 import {
   createVoiceSession,
   addMessageToVoiceSession,
-  setActiveVoiceSession,
 } from '../store/voiceHistorySlice';
-import { useAudioRecorder } from '../hooks/useAudioRecorder';
-import VoiceRecorderButton from '../components/VoiceRecorderButton';
 import VoiceStatusIndicator from '../components/VoiceStatusIndicator';
 import VoiceConversationView from '../components/VoiceConversationView';
 import VoiceVerificationModal from '../components/VoiceVerificationModal';
 import UnifiedHeader from '../components/UnifiedHeader';
 import VoiceSidebar from '../components/VoiceSidebar';
+import { useAudioRecorder } from '../hooks/useAudioRecorder';
 
 const VoiceDashboard = () => {
   const dispatch = useAppDispatch();
   const {
     messages,
-    isRecording: storeIsRecording,
     isProcessing,
     processingStatus,
-    isPlaying,
     error,
     verified,
     customerId,

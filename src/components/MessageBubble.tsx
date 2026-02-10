@@ -15,19 +15,19 @@ const MessageBubble = memo(({ message, onRegenerate }: MessageBubbleProps) => {
   const hasData = message.balance !== undefined || message.cards || message.transactions;
 
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div className={`flex ${isUser ? 'justify-end pr-6' : 'justify-start'} mb-6`}>
       <div className={`max-w-xs sm:max-w-md lg:max-w-lg xl:max-w-2xl ${isUser ? 'order-1' : 'order-2'} group`}>
         <div
-          className={`rounded-lg px-4 py-3 ${
+          className={`rounded-xl px-4 py-2.5 shadow-sm ${
             isUser
-              ? 'bg-blue-600 dark:bg-blue-700 text-white'
+              ? 'bg-blue-600 dark:bg-blue-700 text-white border border-blue-500 dark:border-blue-600'
               : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700'
           }`}
         >
-          <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+          <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{message.content}</p>
           
           {message.flow && !isUser && (
-            <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
               <span className="text-xs text-gray-500 dark:text-gray-400">Flow: {message.flow}</span>
             </div>
           )}
@@ -35,7 +35,7 @@ const MessageBubble = memo(({ message, onRegenerate }: MessageBubbleProps) => {
 
         {/* Display banking data if available */}
         {!isUser && hasData && (
-          <div className="mt-3 space-y-3">
+          <div className="mt-4 space-y-3">
             {message.balance !== undefined && (
               <BalanceCard balance={message.balance} />
             )}
@@ -59,7 +59,7 @@ const MessageBubble = memo(({ message, onRegenerate }: MessageBubbleProps) => {
           />
         )}
         
-        <div className={`mt-1 text-xs text-gray-500 dark:text-gray-400 ${isUser ? 'text-right' : 'text-left'}`}>
+        <div className={`mt-2 text-xs text-gray-500 dark:text-gray-400 ${isUser ? 'text-right' : 'text-left'}`}>
           {new Date(message.timestamp).toLocaleTimeString([], { 
             hour: '2-digit', 
             minute: '2-digit' 

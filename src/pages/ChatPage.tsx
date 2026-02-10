@@ -131,13 +131,13 @@ const ChatPage = () => {
       <div className="flex-1 flex flex-col overflow-hidden">
         <ChatHeader onMenuClick={() => setSidebarOpen(true)} />
         
-        <div className="flex-1 overflow-hidden flex flex-col px-4 sm:px-6 lg:px-8">
+        <div className="flex-1 overflow-hidden flex flex-col px-6 sm:px-8 lg:px-12 py-6">
           <MessageList messages={messages} loading={loading} />
           
           {error && <ErrorAlert message={error} />}
           
           {ttsSupported && (
-            <div className="mb-3">
+            <div className="mb-4">
               <VoiceControls
                 enabled={ttsEnabled}
                 onToggle={() => setTtsEnabled(!ttsEnabled)}

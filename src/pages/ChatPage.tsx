@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useChat } from '../hooks/useChat';
 import { useSession } from '../hooks/useSession';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
@@ -7,7 +7,7 @@ import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { createSession } from '../store/chatHistorySlice';
 import { setMessages } from '../store/chatSlice';
 import Sidebar from '../components/Sidebar';
-import ChatHeader from '../components/ChatHeader';
+import UnifiedHeader from '../components/UnifiedHeader';
 import MessageList from '../components/MessageList';
 import ChatInput from '../components/ChatInput';
 import ErrorAlert from '../components/ErrorAlert';
@@ -30,12 +30,17 @@ const ChatPage = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const isSendingMessageRef = useRef(false);
 
   // Load messages when active session changes
   useEffect(() => {
     const activeSession = sessions.find(s => s.id === activeSessionId);
     if (activeSession) {
+      setIsInitialLoad(true); // Mark as initial load
       dispatch(setMessages(activeSession.messages));
+      // Reset after a short delay
+      setTimeout(() => setIsInitialLoad(false), 100);
     }
   }, [activeSessionId, sessions, dispatch]);
 
@@ -63,13 +68,14 @@ const ChatPage = () => {
     }
   }, [isListening, transcript, inputValue]);
 
-  // Auto-read agent responses
+  // Auto-read agent responses - only when actively sending messages
   useEffect(() => {
-    if (messages.length > 0 && ttsEnabled) {
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage.role === 'agent') {
-        speak(lastMessage.content);
-      }
+    if (!isSendingMessageRef.current || messages.length === 0 || !ttsEnabled) return;
+    
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage.role === 'agent') {
+      speak(lastMessage.content);
+      isSendingMessageRef.current = false; // Reset after playing
     }
   }, [messages, ttsEnabled, speak]);
 
@@ -90,10 +96,13 @@ const ChatPage = () => {
     setInputValue('');
     resetTranscript();
 
+    isSendingMessageRef.current = true; // Mark that we're sending a message
+
     try {
       await sendMessage(messageText, activeSessionId);
     } catch (err) {
       console.error('Failed to send message:', err);
+      isSendingMessageRef.current = false; // Reset on error
     }
   };
 
@@ -109,10 +118,13 @@ const ChatPage = () => {
       setPendingMessage(null);
       setInputValue('');
       
+      isSendingMessageRef.current = true; // Mark that we're sending a message
+      
       try {
         await sendMessage(messageText, activeSessionId);
       } catch (err) {
         console.error('Failed to send message:', err);
+        isSendingMessageRef.current = false; // Reset on error
       }
     }
   };
@@ -129,7 +141,7 @@ const ChatPage = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <div className="flex-1 flex flex-col overflow-hidden">
-        <ChatHeader onMenuClick={() => setSidebarOpen(true)} />
+        <UnifiedHeader onMenuClick={() => setSidebarOpen(true)} />
         
         <div className="flex-1 overflow-hidden flex flex-col px-6 sm:px-8 lg:px-12 py-6">
           <MessageList messages={messages} loading={loading} />

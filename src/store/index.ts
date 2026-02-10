@@ -4,6 +4,8 @@ import sessionReducer from './sessionSlice';
 import authReducer from './authSlice';
 import chatHistoryReducer from './chatHistorySlice';
 import themeReducer from './themeSlice';
+import voiceReducer from './voiceSlice';
+import voiceHistoryReducer from './voiceHistorySlice';
 
 export const store = configureStore({
   reducer: {
@@ -12,6 +14,8 @@ export const store = configureStore({
     auth: authReducer,
     chatHistory: chatHistoryReducer,
     theme: themeReducer,
+    voice: voiceReducer,
+    voiceHistory: voiceHistoryReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
